@@ -741,127 +741,118 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
     <!-- Thêm Firebase SDK -->
-<script type="module">
-let isAdmin = false; // ❌ Mặc định không phải admin
-
+    <script type="module">
+const isAdmin = true; // 🔥 Đổi thành false nếu không phải admin
+// Import Firebase SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, onSnapshot,
-  serverTimestamp, deleteDoc, doc
-} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from
+"https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDgyb1-VrK7flWVXlha8vEapS0BonKKDOU",
-  authDomain: "wedding-invitation-1b3c8.firebaseapp.com",
-  projectId: "wedding-invitation-1b3c8",
-  storageBucket: "wedding-invitation-1b3c8.appspot.com",
-  messagingSenderId: "440194839662",
-  appId: "1:440194839662:web:bbb00404a14259779ca27f"
+    apiKey: "AIzaSyDgyb1-VrK7flWVXlha8vEapS0BonKKDOU",
+    authDomain: "wedding-invitation-1b3c8.firebaseapp.com",
+    projectId: "wedding-invitation-1b3c8",
+    storageBucket: "wedding-invitation-1b3c8.appspot.com",
+    messagingSenderId: "440194839662",
+    appId: "1:440194839662:web:bbb00404a14259779ca27f"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Gửi lời chúc
+// Hàm gửi lời chúc vào Firestore
 async function sendMessage() {
-  const name = document.getElementById("guestName").value;
-  const message = document.getElementById("guestMessage").value;
-  if (!name || !message) {
-    alert("⚠️ Vui lòng nhập tên và lời chúc!");
-    return;
-  }
+    console.log("🔥 Hàm sendMessage() đã được gọi");
 
-  try {
-    await addDoc(collection(db, "guestbook"), {
-      name,
-      message,
-      timestamp: serverTimestamp(),
-      isAdmin: isAdmin, // Ghi lại người gửi có phải admin không
-    });
-    document.getElementById("guestName").value = "";
-    document.getElementById("guestMessage").value = "";
-  } catch (error) {
-    console.error("❌ Gửi lỗi: ", error);
-  }
+// Lấy dữ liệu từ ô nhập
+    const name = document.getElementById("guestName").value;
+    const message = document.getElementById("guestMessage").value;
+
+// Kiểm tra nếu chưa nhập đủ thì cảnh báo
+    if (!name || !message) {
+        console.warn("⚠️ Vui lòng nhập tên và lời chúc!");
+        return;
+    }
+
+    try {
+        console.log("📤 Đang lưu vào Firestore...");
+        const docRef = await addDoc(collection(db, "guestbook"), {
+            name: name,
+            message: message,
+            timestamp: serverTimestamp(),
+        });
+        console.log("✅ Gửi thành công! ID: ", docRef.id);
+
+// Xóa nội dung nhập sau khi gửi thành công
+        document.getElementById("guestName").value = "";
+        document.getElementById("guestMessage").value = "";
+
+    } catch (error) {
+        console.error("❌ Lỗi khi gửi tin nhắn: ", error);
+    }
 }
 
-// Xóa lời chúc (chỉ admin được xóa)
+import { deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
 async function deleteMessage(messageId) {
-  if (!isAdmin) {
-    alert("⛔ Chỉ admin mới được phép xóa!");
-    return;
-  }
-  if (!confirm("Bạn có chắc muốn xoá lời chúc này?")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa lời chúc này?")) return; // Xác nhận xóa
 
-  try {
-    await deleteDoc(doc(db, "guestbook", messageId));
-    console.log("✅ Đã xoá");
-  } catch (error) {
-    console.error("❌ Xóa lỗi: ", error);
-  }
+    try {
+        await deleteDoc(doc(db, "guestbook", messageId));
+        console.log("✅ Xóa thành công!");
+    } catch (error) {
+        console.error("❌ Lỗi khi xóa: ", error);
+    }
 }
 
-// Hiển thị lời chúc
+// ✅ Lắng nghe thay đổi trong Firestore để cập nhật lời chúc theo thời gian thực
+// Chỉ giữ một khai báo listenMessages duy nhất!
 function listenMessages() {
-  const messagesRef = collection(db, "guestbook");
-  onSnapshot(messagesRef, (snapshot) => {
-    const container = document.getElementById("guestbookMessages");
-    container.innerHTML = "";
+    const messagesRef = collection(db, "guestbook");
+    onSnapshot(messagesRef, (snapshot) => {
+    const messageContainer = document.getElementById("guestbookMessages");
+    messageContainer.innerHTML = ""; // Xóa nội dung cũ trước khi cập nhật
+    snapshot.forEach((doc) => {
+            const msg = doc.data();
+            const messageId = doc.id;
+            const div = document.createElement("div");
+            div.classList.add("message");
+            div.innerHTML = `<strong>${msg.name}:</strong> ${msg.message}`;
 
-    snapshot.forEach((docSnap) => {
-      const msg = docSnap.data();
-      const messageId = docSnap.id;
-
-      const div = document.createElement("div");
-      div.classList.add("message");
-      div.innerHTML = `<strong>${msg.name}:</strong> ${msg.message}`;
-      div.style.position = "relative";
-
-      // Nếu đang là admin, hiển thị nút xoá
-      if (isAdmin) {
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "❌";
-        deleteBtn.style.position = "absolute";
-        deleteBtn.style.top = "5px";
-        deleteBtn.style.right = "5px";
-        deleteBtn.style.background = "white";
-        deleteBtn.style.color = "red";
-        deleteBtn.style.border = "none";
-        deleteBtn.style.padding = "5px 10px";
-        deleteBtn.style.borderRadius = "50%";
-        deleteBtn.style.fontSize = "10px";
-        deleteBtn.style.width = "16px";
-        deleteBtn.style.height = "16px";
-        deleteBtn.style.display = "flex";
-        deleteBtn.style.alignItems = "center";
-        deleteBtn.style.justifyContent = "center";
-        deleteBtn.style.cursor = "pointer";
-        deleteBtn.onclick = () => deleteMessage(messageId);
-        div.appendChild(deleteBtn);
-      }
-
-      container.appendChild(div);
-    });
-  });
+// Nếu là admin, thêm nút xóa
+if (isAdmin) {
+   const deleteBtn = document.createElement("button");
+   deleteBtn.textContent = "❌";
+   deleteBtn.style.position = "absolute"; // Đặt vị trí tuyệt đối
+   deleteBtn.style.top = "5px";// Đưa nút lên sát mép trên
+   deleteBtn.style.right = "5px";// Đưa nút sang sát mép phải
+   deleteBtn.style.background = "white";
+   deleteBtn.style.color = "red";
+   deleteBtn.style.border = "none";
+   deleteBtn.style.padding = "5px 10px";
+   deleteBtn.style.borderRadius = "50%";  // Làm tròn nút
+   deleteBtn.style.fontSize = "10px";      // Giảm kích thước chữ
+   deleteBtn.style.width = "16px";        // Kích thước nút nhỏ gọn
+   deleteBtn.style.height = "16px";       
+   deleteBtn.style.display = "flex";
+   deleteBtn.style.alignItems = "center";
+   deleteBtn.style.justifyContent = "center";
+   deleteBtn.style.cursor = "pointer";
+   deleteBtn.onclick = () => deleteMessage(messageId);
+   div.style.position = "relative";
+   div.appendChild(deleteBtn);
+}
+   messageContainer.appendChild(div);
+});
+});
 }
 
-// Đăng nhập Admin bằng mật khẩu
-window.checkAdmin = function () {
-  const pass = document.getElementById("adminPass").value;
-  if (pass === "matkhaucuaban") { // 🔐 Bạn đổi mật khẩu admin ở đây
-    isAdmin = true;
-    alert("✅ Đăng nhập admin thành công!");
-    listenMessages(); // Refresh lại hiển thị
-  } else {
-    alert("❌ Sai mật khẩu!");
-  }
-};
-
+// Đảm bảo các hàm có thể gọi từ HTML
 document.addEventListener("DOMContentLoaded", () => {
-  window.sendMessage = sendMessage;
-  listenMessages();
+    window.sendMessage = sendMessage;
+    listenMessages(); // Lắng nghe tin nhắn khi trang tải
 });
-</script>
+    </script>
 
 <script>
   function scrollToSection(id) {
